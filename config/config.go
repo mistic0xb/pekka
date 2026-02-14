@@ -16,8 +16,9 @@ type Config struct {
 }
 
 type AuthorConfig struct {
-	NPub string `mapstructure:"npub"`
-	NSec string `mapstructure:"nsec"`
+	NPub      string `mapstructure:"npub"`
+	BunkerURL string `mapstructure:"bunker_url"` // Changed from NSec
+
 }
 
 type ZapConfig struct {
@@ -40,8 +41,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("author.npub is required")
 	}
 
-	if c.Author.NSec == "" {
-		return fmt.Errorf("author.nsec is required")
+	if c.Author.BunkerURL == "" {
+		return fmt.Errorf("author.bunker_url is required")
 	}
 
 	if len(c.Relays) == 0 {
@@ -88,9 +89,6 @@ func (c *Config) Print() {
 	for i, relay := range c.Relays {
 		fmt.Printf("  %v %s\n", i+1, relay)
 	}
-	fmt.Println()
-
-	fmt.Printf("NWC URL: %s\n", maskNWCUrl(c.NWCUrl))
 	fmt.Println()
 
 	fmt.Printf("Zap Amount: %d sats\n", c.Zap.Amount)

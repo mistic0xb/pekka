@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mistic0xb/zapbot/internal/bunker"
 	"github.com/mistic0xb/zapbot/internal/nwc"
 	"github.com/nbd-wtf/go-nostr"
 )
@@ -46,7 +47,7 @@ func (z *Zapper) Close() {
 }
 
 // ZapNote sends a zap to a note
-func (z *Zapper) ZapNote(ctx context.Context, eventID, authorPubkey string, amountSats int, comment string) error {
+func (z *Zapper) ZapNote(ctx context.Context, eventID, authorPubkey string, amountSats int, comment string, bunkerClient *bunker.Client) error {
 	// Step 1: Get author's lightning address from profile
 	lightningAddress, err := z.getLightningAddress(ctx, authorPubkey)
 	if err != nil {
@@ -57,16 +58,23 @@ func (z *Zapper) ZapNote(ctx context.Context, eventID, authorPubkey string, amou
 		return fmt.Errorf("author has no lightning address in profile")
 	}
 
-	// Step 2: Convert lightning address to LNURL endpoint
+	// Step 2: Create zap request (kind 9734) using bunker
+	zapRequest, err := z.createZapRequest(ctx, eventID, authorPubkey, amountSats, comment, bunkerClient)
+
+	if err != nil {
+		return fmt.Errorf("failed to create zap request: %w", err)
+	}
+
+	// Step 3: Convert lightning address to LNURL endpoint
 	lnurlEndpoint := z.lightningAddressToLNURL(lightningAddress)
 
-	// Step 3: Request invoice
-	invoice, err := z.requestInvoice(ctx, lnurlEndpoint, amountSats, comment)
+	// Step 4: Request invoice with zap request
+	invoice, err := z.requestInvoice(ctx, lnurlEndpoint, amountSats, zapRequest)
 	if err != nil {
 		return fmt.Errorf("failed to request invoice: %w", err)
 	}
 
-	// Step 4: Pay invoice via NWC
+	// Step 5: Pay invoice via NWC (LNURL service will publish kind 9735 after payment)
 	if err := z.nwcClient.PayInvoice(ctx, invoice); err != nil {
 		return fmt.Errorf("failed to pay invoice: %w", err)
 	}
@@ -74,10 +82,45 @@ func (z *Zapper) ZapNote(ctx context.Context, eventID, authorPubkey string, amou
 	return nil
 }
 
+// createZapRequest creates a kind 9734 zap request event
+func (z *Zapper) createZapRequest(ctx context.Context, eventID, recipientPubkey string, amountSats int, comment string, bunkerClient *bunker.Client) (string, error) {
+
+	zapperPubkey, err := bunkerClient.GetPublicKey(ctx)
+
+	event := nostr.Event{
+		PubKey:    zapperPubkey,
+		CreatedAt: nostr.Now(),
+		Kind:      9734,
+		Tags: nostr.Tags{
+			{"e", eventID},
+			{"p", recipientPubkey},
+			{"amount", fmt.Sprintf("%d", amountSats*1000)},
+			{"relays", z.relays[0]},
+		},
+		Content: comment,
+	}
+
+	// Sign the zap request
+	event.ID = event.GetID()
+
+	// Sign using bunker
+	if err := bunkerClient.SignEvent(ctx, &event); err != nil {
+		return "", fmt.Errorf("failed to sign zap request: %w", err)
+	}
+
+	// Serialize to JSON
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal zap request: %w", err)
+	}
+
+	return string(eventJSON), nil
+}
+
 // getLightningAddress fetches the author's lightning address from their profile (kind 0)
 func (z *Zapper) getLightningAddress(ctx context.Context, pubkey string) (string, error) {
 	filters := []nostr.Filter{{
-		Kinds:   []int{0}, // Kind 0 = profile metadata
+		Kinds:   []int{0},
 		Authors: []string{pubkey},
 		Limit:   1,
 	}}
@@ -87,21 +130,19 @@ func (z *Zapper) getLightningAddress(ctx context.Context, pubkey string) (string
 
 	for event := range z.pool.SubManyEose(profileCtx, z.relays, filters) {
 		var profile struct {
-			LUD16 string `json:"lud16"` // Lightning address (user@domain.com)
-			LUD06 string `json:"lud06"` // LNURL (lnurl1...)
+			LUD16 string `json:"lud16"`
+			LUD06 string `json:"lud06"`
 		}
 
 		if err := json.Unmarshal([]byte(event.Content), &profile); err != nil {
 			continue
 		}
 
-		// Prefer lud16 (lightning address) over lud06
 		if profile.LUD16 != "" {
 			return profile.LUD16, nil
 		}
 
 		if profile.LUD06 != "" {
-			// TODO: Decode lud06 bech32 to URL if needed
 			return profile.LUD06, nil
 		}
 	}
@@ -121,7 +162,7 @@ func (z *Zapper) lightningAddressToLNURL(address string) string {
 }
 
 // requestInvoice requests a lightning invoice from an LNURL endpoint
-func (z *Zapper) requestInvoice(ctx context.Context, lnurlEndpoint string, amountSats int, comment string) (string, error) {
+func (z *Zapper) requestInvoice(ctx context.Context, lnurlEndpoint string, amountSats int, zapRequest string) (string, error) {
 	// Step 1: Fetch LNURL metadata
 	metadata, err := z.fetchLNURLMetadata(lnurlEndpoint)
 	if err != nil {
@@ -137,8 +178,8 @@ func (z *Zapper) requestInvoice(ctx context.Context, lnurlEndpoint string, amoun
 		return "", fmt.Errorf("amount %d msats above maximum %d msats", amountMillisats, metadata.MaxSendable)
 	}
 
-	// Step 3: Request invoice
-	invoice, err := z.fetchInvoice(metadata.Callback, amountMillisats, comment)
+	// Step 3: Request invoice with zap request
+	invoice, err := z.fetchInvoice(metadata.Callback, amountMillisats, zapRequest)
 	if err != nil {
 		return "", err
 	}
@@ -187,7 +228,7 @@ func (z *Zapper) fetchLNURLMetadata(endpoint string) (*LNURLPayMetadata, error) 
 }
 
 // fetchInvoice requests an invoice from the callback URL
-func (z *Zapper) fetchInvoice(callback string, amountMillisats int64, comment string) (string, error) {
+func (z *Zapper) fetchInvoice(callback string, amountMillisats int64, zapRequest string) (string, error) {
 	// Build callback URL with parameters
 	callbackURL, err := url.Parse(callback)
 	if err != nil {
@@ -196,9 +237,8 @@ func (z *Zapper) fetchInvoice(callback string, amountMillisats int64, comment st
 
 	q := callbackURL.Query()
 	q.Set("amount", strconv.FormatInt(amountMillisats, 10))
-	if comment != "" {
-		q.Set("comment", comment)
-	}
+	q.Set("nostr", zapRequest) // Include zap request
+
 	callbackURL.RawQuery = q.Encode()
 
 	// Request invoice
@@ -218,9 +258,9 @@ func (z *Zapper) fetchInvoice(callback string, amountMillisats int64, comment st
 	}
 
 	var invoiceResponse struct {
-		PR     string `json:"pr"`     // Payment request (bolt11 invoice)
-		Status string `json:"status"` // Optional status
-		Reason string `json:"reason"` // Error reason if status is ERROR
+		PR     string `json:"pr"`
+		Status string `json:"status"`
+		Reason string `json:"reason"`
 	}
 
 	if err := json.Unmarshal(body, &invoiceResponse); err != nil {

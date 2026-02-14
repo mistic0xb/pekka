@@ -2,15 +2,13 @@ package nostrlist
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/mistic0xb/zapbot/internal/bunker"
 	"github.com/nbd-wtf/go-nostr"
-	"github.com/nbd-wtf/go-nostr/nip04"
 	"github.com/nbd-wtf/go-nostr/nip19"
-	"github.com/nbd-wtf/go-nostr/nip44"
 )
 
 // PrivateList represents a NIP-51 private list
@@ -23,8 +21,8 @@ type PrivateList struct {
 	HasPrivate bool
 }
 
-// FetchPrivateLists fetches all kind 30000 lists authored by the given npub
-func FetchPrivateLists(relayURLs []string, authorNPub, authorNSec string) ([]*PrivateList, error) {
+// FetchPrivateLists now takes bunker client instead of nsec
+func FetchPrivateLists(relayURLs []string, authorNPub string, bunkerClient *bunker.Client, pool *nostr.SimplePool) ([]*PrivateList, error) {
 	// Decode npub to hex
 	prefix, pubkeyHex, err := nip19.Decode(authorNPub)
 	if err != nil {
@@ -34,28 +32,19 @@ func FetchPrivateLists(relayURLs []string, authorNPub, authorNSec string) ([]*Pr
 		return nil, fmt.Errorf("expected npub prefix")
 	}
 
-	// Decode nsec to hex
-	prefix, privkeyHex, err := nip19.Decode(authorNSec)
-	if err != nil {
-		return nil, fmt.Errorf("invalid nsec: %w", err)
-	}
-	if prefix != "nsec" {
-		return nil, fmt.Errorf("expected nsec prefix")
-	}
-
-	// Create filter for kind 30000 (private people lists)
+	// Create filter for kind 30000
 	filter := nostr.Filter{
 		Kinds:   []int{30000},
 		Authors: []string{pubkeyHex.(string)},
 	}
 
 	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
 	// Collect events from relays
 	eventChan := make(chan nostr.RelayEvent, 100)
-	pool := nostr.NewSimplePool(ctx)
+	// pool := nostr.NewSimplePool(ctx)
 
 	for event := range pool.FetchMany(ctx, relayURLs, filter) {
 		eventChan <- event
@@ -69,11 +58,11 @@ func FetchPrivateLists(relayURLs []string, authorNPub, authorNSec string) ([]*Pr
 	}
 
 	// Process events into lists
-	return processEvents(events, privkeyHex.(string), pubkeyHex.(string))
+	return processEvents(events, bunkerClient, pubkeyHex.(string))
 }
 
 // processEvents converts raw events into PrivateList structs
-func processEvents(events []nostr.RelayEvent, privkeyHex, pubkeyHex string) ([]*PrivateList, error) {
+func processEvents(events []nostr.RelayEvent, bunkerClient *bunker.Client, pubkeyHex string) ([]*PrivateList, error) {
 	lists := make([]*PrivateList, 0)
 	seen := make(map[string]bool)
 
@@ -114,7 +103,7 @@ func processEvents(events []nostr.RelayEvent, privkeyHex, pubkeyHex string) ([]*
 		}
 
 		// Get npubs from both tags and encrypted content
-		npubs, hasPrivate := extractAllNPubs(event, privkeyHex, pubkeyHex)
+		npubs, hasPrivate := extractAllNPubs(event, bunkerClient, pubkeyHex)
 
 		lists = append(lists, &PrivateList{
 			ID:         listID,
@@ -130,7 +119,7 @@ func processEvents(events []nostr.RelayEvent, privkeyHex, pubkeyHex string) ([]*
 }
 
 // extractAllNPubs gets npubs from both public tags AND encrypted content
-func extractAllNPubs(event nostr.RelayEvent, privkeyHex, pubkeyHex string) ([]string, bool) {
+func extractAllNPubs(event nostr.RelayEvent, bunkerClient *bunker.Client, pubkeyHex string) ([]string, bool) {
 	npubSet := make(map[string]bool)
 	hasPrivate := false
 
@@ -146,8 +135,13 @@ func extractAllNPubs(event nostr.RelayEvent, privkeyHex, pubkeyHex string) ([]st
 
 	// 2. Decrypt content and extract private members
 	if event.Content != "" {
-		plaintext, err := decryptContent(event.Content, privkeyHex, pubkeyHex)
-		if err == nil && plaintext != "" {
+		fmt.Printf("Decrypting private content...\n")
+
+		plaintext, err := decryptContent(event.Content, bunkerClient, pubkeyHex)
+		if err != nil {
+			fmt.Printf("Decryption failed: %v\n", err)
+		} else if plaintext != "" {
+			fmt.Printf("Decrypted successfully\n\n")
 			privateTags := parseDecryptedTags(plaintext)
 			for _, tag := range privateTags {
 				if len(tag) >= 2 && tag[0] == "p" {
@@ -165,34 +159,29 @@ func extractAllNPubs(event nostr.RelayEvent, privkeyHex, pubkeyHex string) ([]st
 }
 
 // decryptContent tries NIP-44 first, then falls back to NIP-04
-func decryptContent(content, privkeyHex, pubkeyHex string) (string, error) {
-	// Convert keys to bytes for NIP-44
-	privkeyBytes, err := hex.DecodeString(privkeyHex)
-	if err != nil {
-		return "", fmt.Errorf("invalid privkey hex: %w", err)
-	}
+func decryptContent(content string, bunkerClient *bunker.Client, pubkeyHex string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	// Try NIP-44 (modern encryption)
-	conversationKey, err := nip44.GenerateConversationKey(pubkeyHex, privkeyHex)
+	plaintext, err := bunkerClient.DecryptNIP44(ctx, pubkeyHex, content)
 	if err == nil {
-		plaintext, err := nip44.Decrypt(content, conversationKey)
-		if err == nil {
-			return plaintext, nil
-		}
+		fmt.Printf("NIP-44 decryption worked\n")
+		return plaintext, nil
 	}
+	fmt.Printf("NIP-44 decryption failed, trying NIP-04: %v\n", err)
 
 	// Fallback to NIP-04 (legacy encryption)
-	plaintext, err := nip04.Decrypt(content, privkeyBytes)
+	plaintext, err = bunkerClient.DecryptNIP04(ctx, pubkeyHex, content)
 	if err != nil {
-		return "", fmt.Errorf("decryption failed: %w", err)
+		fmt.Printf("NIP-04 failed: %v\n", err)
+		return "", fmt.Errorf("NIP-04 decryption failed: %w", err)
 	}
-
 	return plaintext, nil
 }
 
 // parseDecryptedTags parses the decrypted content as tag array
 func parseDecryptedTags(content string) [][]string {
-	// The decrypted content is a JSON array of tags: [["p", "pubkey", "relay"], ...]
 	var tags [][]string
 	if err := json.Unmarshal([]byte(content), &tags); err != nil {
 		return nil
@@ -210,8 +199,8 @@ func npubsFromSet(npubSet map[string]bool) []string {
 }
 
 // GetNPubsFromList fetches a specific list by ID
-func GetNPubsFromList(relays []string, authorNPub, authorNSec, listID string) ([]string, error) {
-	lists, err := FetchPrivateLists(relays, authorNPub, authorNSec)
+func GetNPubsFromList(relays []string, authorNPub string, bunkerClient *bunker.Client, pool *nostr.SimplePool, listID string) ([]string, error) {
+	lists, err := FetchPrivateLists(relays, authorNPub, bunkerClient, pool)
 	if err != nil {
 		return nil, err
 	}

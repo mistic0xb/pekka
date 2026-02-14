@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,15 +12,17 @@ import (
 
 	"github.com/mistic0xb/zapbot/config"
 	"github.com/mistic0xb/zapbot/internal/bot"
+	"github.com/mistic0xb/zapbot/internal/bunker"
 	"github.com/mistic0xb/zapbot/internal/db"
 	"github.com/mistic0xb/zapbot/internal/nostrlist"
+	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the auto-zap bot",
+	Short: "Start  auto-zap bot",
 	Long:  `Fetches your private lists, lets you select one, and starts auto-zapping.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := GetConfig()
@@ -90,11 +93,22 @@ func selectList(cfg *config.Config) error {
 	fmt.Println("Fetching your private lists from relays...")
 	fmt.Println()
 
+	// Create pool for bunker
+	ctx := context.Background()
+	pool := nostr.NewSimplePool(ctx)
+
+	// Create bunker client
+	bunkerClient, err := bunker.NewClient(ctx, cfg.Author.BunkerURL, pool)
+	if err != nil {
+		return fmt.Errorf("failed to connect to bunker: %w\nPlease check your bunker_url in config", err)
+	}
+
 	// Fetch lists
 	lists, err := nostrlist.FetchPrivateLists(
 		cfg.Relays,
 		cfg.Author.NPub,
-		cfg.Author.NSec,
+		bunkerClient,
+		pool,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to fetch lists: %w", err)

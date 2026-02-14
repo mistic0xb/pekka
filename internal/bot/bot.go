@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mistic0xb/zapbot/config"
+	"github.com/mistic0xb/zapbot/internal/bunker"
 	"github.com/mistic0xb/zapbot/internal/db"
 	"github.com/mistic0xb/zapbot/internal/nostrlist"
 	"github.com/mistic0xb/zapbot/internal/zap"
@@ -15,13 +16,14 @@ import (
 )
 
 type Bot struct {
-	config *config.Config
-	db     *db.DB
-	pool   *nostr.SimplePool
-	zapper *zap.Zapper
-	npubs  []string
-	ctx    context.Context
-	cancel context.CancelFunc
+	config       *config.Config
+	db           *db.DB
+	pool         *nostr.SimplePool
+	zapper       *zap.Zapper
+	bunkerClient *bunker.Client
+	npubs        []string
+	ctx          context.Context
+	cancel       context.CancelFunc
 }
 
 func New(cfg *config.Config, database *db.DB) (*Bot, error) {
@@ -32,6 +34,13 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := nostr.NewSimplePool(ctx)
 
+	//  bunker client
+	bunkerClient, err := bunker.NewClient(ctx, cfg.Author.BunkerURL, pool)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to create bunker client: %w", err)
+	}
+
 	// Create zapper
 	zapper, err := zap.New(cfg.NWCUrl, cfg.Relays, pool)
 	if err != nil {
@@ -40,12 +49,13 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	}
 
 	return &Bot{
-		config: cfg,
-		db:     database,
-		pool:   pool,
-		zapper: zapper,
-		ctx:    ctx,
-		cancel: cancel,
+		config:       cfg,
+		db:           database,
+		pool:         pool,
+		zapper:       zapper,
+		bunkerClient: bunkerClient,
+		ctx:          ctx,
+		cancel:       cancel,
 	}, nil
 }
 
@@ -100,7 +110,8 @@ func (b *Bot) loadNPubs() error {
 	npubs, err := nostrlist.GetNPubsFromList(
 		b.config.Relays,
 		b.config.Author.NPub,
-		b.config.Author.NSec,
+		b.bunkerClient,
+		b.pool,
 		b.config.SelectedList,
 	)
 	if err != nil {
@@ -210,13 +221,21 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 		return
 	}
 
+	// // Decode nsec to hex
+	// _, privkeyData, err := nip19.Decode(b.config.Author.NSec)
+	// if err != nil {
+	// 	fmt.Printf("Error decoding nsec: %v\n", err)
+	// 	return
+	// }
+	// privkeyHex := privkeyData.(string)
+
 	// Send the zap!
-	fmt.Printf("⚡ Zapping %d sats...\n", b.config.Zap.Amount)
+	fmt.Printf("🌩️  Zapping %d sats...\n", b.config.Zap.Amount)
 
 	zapCtx, cancel := context.WithTimeout(b.ctx, 30*time.Second)
 	defer cancel()
 
-	err = b.zapper.ZapNote(zapCtx, event.ID, event.PubKey, b.config.Zap.Amount, b.config.Zap.Comment)
+	err = b.zapper.ZapNote(zapCtx, event.ID, event.PubKey, b.config.Zap.Amount, b.config.Zap.Comment, b.bunkerClient)
 	if err != nil {
 		fmt.Printf("❌ Zap failed: %v\n", err)
 		return

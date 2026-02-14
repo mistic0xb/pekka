@@ -72,6 +72,7 @@ func initConfig() {
 	}
 
 	fmt.Printf("Using config file: %s\n\n", viper.ConfigFileUsed())
+	cfg.Print()
 }
 
 // GetConfig returns the loaded configuration
