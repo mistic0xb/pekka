@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/mistic0xb/zapbot/internal/logger"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip04"
 )
@@ -38,31 +39,40 @@ type ResponseError struct {
 
 // NewClient creates NWC client from nostr+walletconnect:// URL
 func NewClient(nwcURL string) (*Client, error) {
-	// Parse: nostr+walletconnect://pubkey?relay=wss://relay&secret=hex
 	u, err := url.Parse(nwcURL)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("invalid NWC URL")
 		return nil, fmt.Errorf("invalid NWC URL: %w", err)
 	}
 
 	if u.Scheme != "nostr+walletconnect" {
+		logger.Log.Error().
+			Str("scheme", u.Scheme).
+			Msg("invalid NWC URL scheme")
 		return nil, fmt.Errorf("invalid scheme: expected nostr+walletconnect, got %s", u.Scheme)
 	}
 
-	// Extract wallet pubkey from host
 	walletPubkey := u.Host
-
-	// Extract relay and secret from query params
 	query := u.Query()
 	relayURL := query.Get("relay")
 	secret := query.Get("secret")
 
 	if relayURL == "" {
+		logger.Log.Error().
+			Msg("missing relay parameter in NWC URL")
 		return nil, fmt.Errorf("missing relay parameter")
 	}
 
 	if secret == "" {
+		logger.Log.Error().
+			Msg("missing secret parameter in NWC URL")
 		return nil, fmt.Errorf("missing secret parameter")
 	}
+
+	logger.Log.Info().
+		Msg("NWC client created")
 
 	return &Client{
 		walletPubkey: walletPubkey,
@@ -75,16 +85,27 @@ func NewClient(nwcURL string) (*Client, error) {
 func (c *Client) Connect(ctx context.Context) error {
 	relay, err := nostr.RelayConnect(ctx, c.relayURL)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Str("relay", c.relayURL).
+			Msg("failed to connect to wallet relay")
 		return fmt.Errorf("failed to connect to %s: %w", c.relayURL, err)
 	}
 
 	c.relay = relay
+
+	logger.Log.Info().
+		Str("relay", c.relayURL).
+		Msg("connected to wallet relay")
+
 	return nil
 }
 
 // Close closes the relay connection
 func (c *Client) Close() error {
 	if c.relay != nil {
+		logger.Log.Info().
+			Msg("closing wallet relay connection")
 		return c.relay.Close()
 	}
 	return nil
@@ -101,12 +122,22 @@ func (c *Client) PayInvoice(ctx context.Context, invoice string) error {
 
 	response, err := c.sendRequest(ctx, request)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("pay_invoice request failed")
 		return err
 	}
 
 	if response.Error != nil {
+		logger.Log.Error().
+			Str("code", response.Error.Code).
+			Str("message", response.Error.Message).
+			Msg("wallet returned payment error")
 		return fmt.Errorf("payment failed: %s - %s", response.Error.Code, response.Error.Message)
 	}
+
+	logger.Log.Info().
+		Msg("invoice paid successfully")
 
 	return nil
 }
@@ -120,103 +151,130 @@ func (c *Client) GetBalance(ctx context.Context) (int64, error) {
 
 	response, err := c.sendRequest(ctx, request)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("get_balance request failed")
 		return 0, err
 	}
 
 	if response.Error != nil {
+		logger.Log.Error().
+			Str("code", response.Error.Code).
+			Str("message", response.Error.Message).
+			Msg("wallet returned get_balance error")
 		return 0, fmt.Errorf("get_balance failed: %s - %s", response.Error.Code, response.Error.Message)
 	}
 
-	// Balance is in millisats
 	balance, ok := response.Result["balance"].(float64)
 	if !ok {
+		logger.Log.Error().
+			Msg("invalid balance type in wallet response")
 		return 0, fmt.Errorf("invalid balance in response")
 	}
+
+	logger.Log.Info().
+		Msg("wallet balance fetched")
 
 	return int64(balance), nil
 }
 
 func (c *Client) sendRequest(ctx context.Context, req Request) (*Response, error) {
 	if c.relay == nil {
+		logger.Log.Error().
+			Msg("sendRequest called without relay connection")
 		return nil, fmt.Errorf("not connected to relay")
 	}
 
-	// 1. COMPUTE SHARED SECRET (This creates the correct 32-byte key)
 	sharedSecret, err := nip04.ComputeSharedSecret(c.walletPubkey, c.secret)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("failed to compute shared secret")
 		return nil, fmt.Errorf("failed to compute shared secret: %w", err)
 	}
 
-	// Derive our pubkey from secret
 	ourPubkey, err := nostr.GetPublicKey(c.secret)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("invalid client secret")
 		return nil, fmt.Errorf("invalid secret: %w", err)
 	}
 
-	// Create event
 	event := nostr.Event{
 		PubKey:    ourPubkey,
 		CreatedAt: nostr.Now(),
-		Kind:      23194, // NIP-47 request
+		Kind:      23194,
 		Tags:      nostr.Tags{{"p", c.walletPubkey}},
 	}
 
-	// Serialize request to JSON
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("failed to marshal NWC request")
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// 2. USE SHARED SECRET FOR ENCRYPTION
 	encrypted, err := nip04.Encrypt(string(reqJSON), sharedSecret)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("failed to encrypt NWC request")
 		return nil, fmt.Errorf("failed to encrypt request: %w", err)
 	}
 
 	event.Content = encrypted
-
-	// Sign event
 	event.ID = event.GetID()
 	event.Sign(c.secret)
 
-	// Publish request
-	err = c.relay.Publish(ctx, event)
-	if err != nil {
+	if err := c.relay.Publish(ctx, event); err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("failed to publish NWC request")
 		return nil, fmt.Errorf("failed to publish request: %w", err)
 	}
 
-	// Subscribe to response
 	responseCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	filters := []nostr.Filter{{
-		Kinds: []int{23195}, // NIP-47 response
+		Kinds: []int{23195},
 		Tags:  nostr.TagMap{"e": []string{event.ID}},
 		Limit: 1,
 	}}
 
 	sub, err := c.relay.Subscribe(responseCtx, filters)
 	if err != nil {
+		logger.Log.Error().
+			Err(err).
+			Msg("failed to subscribe to wallet response")
 		return nil, fmt.Errorf("failed to subscribe to response: %w", err)
 	}
 
-	// Wait for response
 	select {
 	case responseEvent := <-sub.Events:
-		// 3. USE SHARED SECRET FOR DECRYPTION
 		decrypted, err := nip04.Decrypt(responseEvent.Content, sharedSecret)
 		if err != nil {
+			logger.Log.Error().
+				Err(err).
+				Msg("failed to decrypt wallet response")
 			return nil, fmt.Errorf("failed to decrypt response: %w", err)
 		}
 
 		var response Response
 		if err := json.Unmarshal([]byte(decrypted), &response); err != nil {
+			logger.Log.Error().
+				Err(err).
+				Msg("failed to parse wallet response")
 			return nil, fmt.Errorf("failed to parse response: %w", err)
 		}
 
 		return &response, nil
 
 	case <-responseCtx.Done():
+		logger.Log.Error().
+			Msg("timeout waiting for wallet response")
 		return nil, fmt.Errorf("timeout waiting for wallet response")
 	}
 }
