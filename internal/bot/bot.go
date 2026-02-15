@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/mistic0xb/zapbot/config"
@@ -31,12 +32,10 @@ type Bot struct {
 }
 
 func New(cfg *config.Config, database *db.DB) (*Bot, error) {
-	logger.Log.Info().
-		Msg("initializing bot")
+	logger.Log.Info().Msg("initializing bot")
 
 	if cfg.SelectedList == "" {
-		logger.Log.Error().
-			Msg("no selected list in config")
+		logger.Log.Error().Msg("no selected list in config")
 		return nil, fmt.Errorf("no list selected.")
 	}
 
@@ -45,24 +44,19 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 
 	bunkerClient, err := bunker.NewClient(ctx, cfg.Author.BunkerURL, pool)
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to create bunker client")
+		logger.Log.Error().Err(err).Msg("failed to create bunker client")
 		cancel()
 		return nil, fmt.Errorf("failed to create bunker client: %w", err)
 	}
 
 	zapper, err := zap.New(cfg.NWCUrl, cfg.Relays, pool)
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to create zapper")
+		logger.Log.Error().Err(err).Msg("failed to create zapper")
 		cancel()
 		return nil, fmt.Errorf("failed to create zapper: %w", err)
 	}
 
-	logger.Log.Info().
-		Msg("bot initialized successfully")
+	logger.Log.Info().Msg("bot initialized successfully")
 
 	return &Bot{
 		config:       cfg,
@@ -76,34 +70,24 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 }
 
 func (b *Bot) Start() error {
-	logger.Log.Info().
-		Str("list_id", b.config.SelectedList).
-		Msg("starting bot")
+	logger.Log.Info().Str("list_id", b.config.SelectedList).Msg("starting bot")
 
-	s := ui.NewSpinner("Starting Zapbot", 11, "green")
+	fmt.Println("Starting Zapbot")
 	fmt.Printf("Selected list: %s\n", b.config.SelectedList)
 	fmt.Println()
 
 	if err := b.loadNPubs(); err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to load npubs")
+		logger.Log.Error().Err(err).Msg("failed to load npubs")
 		return fmt.Errorf("failed to load list: %w", err)
 	}
-	s.Stop()
 
-	logger.Log.Info().
-		Int("npub_count", len(b.npubs)).
-		Msg("loaded npubs")
-
+	logger.Log.Info().Int("npub_count", len(b.npubs)).Msg("loaded npubs")
 	fmt.Printf("Monitoring %d npubs\n", len(b.npubs))
 	fmt.Println()
 
-	s = ui.NewSpinner("Connecting to wallet", 11, "yellow")
+	s := ui.NewSpinner("Connecting to wallet", 11, "yellow")
 	if err := b.zapper.Connect(b.ctx); err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to connect to wallet")
+		logger.Log.Error().Err(err).Msg("failed to connect to wallet")
 		return fmt.Errorf("failed to connect to wallet: %w", err)
 	}
 	defer b.zapper.Close()
@@ -111,49 +95,36 @@ func (b *Bot) Start() error {
 
 	balance, err := b.zapper.GetBalance(b.ctx)
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to fetch wallet balance")
+		logger.Log.Error().Err(err).Msg("failed to fetch wallet balance")
 		fmt.Printf("Warning: could not fetch balance: %v\n", err)
 	} else {
-		logger.Log.Info().
-			Int64("balance_msat", balance).
-			Msg("wallet balance fetched")
+		logger.Log.Info().Int64("balance_msat", balance).Msg("wallet balance fetched")
 		fmt.Println()
 		fmt.Printf("Wallet balance: %d sats\n", balance/1000)
 	}
 	fmt.Println()
 
 	if err := b.subscribeToEvents(); err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to subscribe to events")
+		logger.Log.Error().Err(err).Msg("failed to subscribe to events")
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
 
-	logger.Log.Info().
-		Msg("bot is running")
-
+	logger.Log.Info().Msg("bot is running")
 	fmt.Println("Bot is running. Press Ctrl+C to stop.")
 	<-b.ctx.Done()
 
-	logger.Log.Info().
-		Msg("bot context cancelled")
-
+	logger.Log.Info().Msg("bot context cancelled")
 	return nil
 }
 
 func (b *Bot) Stop() {
-	logger.Log.Info().
-		Msg("stopping bot")
+	logger.Log.Info().Msg("stopping bot")
 	fmt.Println("\nStopping bot...")
 	b.cancel()
 }
 
 func (b *Bot) loadNPubs() error {
-	logger.Log.Info().
-		Str("list_id", b.config.SelectedList).
-		Msg("loading npubs from list")
+	logger.Log.Info().Str("list_id", b.config.SelectedList).Msg("loading npubs from list")
 
 	npubs, err := nostrlist.GetNPubsFromList(
 		b.config.Relays,
@@ -163,15 +134,12 @@ func (b *Bot) loadNPubs() error {
 		b.config.SelectedList,
 	)
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to fetch npubs from list")
+		logger.Log.Error().Err(err).Msg("failed to fetch npubs from list")
 		return err
 	}
 
 	if len(npubs) == 0 {
-		logger.Log.Error().
-			Msg("selected list is empty")
+		logger.Log.Error().Msg("selected list is empty")
 		return fmt.Errorf("selected list is empty")
 	}
 
@@ -188,24 +156,18 @@ func (b *Bot) loadNPubs() error {
 func (b *Bot) subscribeToEvents() error {
 	pubkeys, err := b.npubsToHex()
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to convert npubs to hex")
+		logger.Log.Error().Err(err).Msg("failed to convert npubs to hex")
 		return err
 	}
 
 	since := nostr.Now()
-
 	filters := []nostr.Filter{{
 		Kinds:   []int{1},
 		Authors: pubkeys,
 		Since:   &since,
 	}}
 
-	logger.Log.Info().
-		Int("author_count", len(pubkeys)).
-		Msg("subscribing to events")
-
+	logger.Log.Info().Int("author_count", len(pubkeys)).Msg("subscribing to events")
 	fmt.Printf("Subscribing to kind 1 events from %d authors...\n", len(pubkeys))
 	fmt.Println()
 
@@ -235,29 +197,24 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 	)
 	fmt.Printf("Content: %s\n", truncate(event.Content, 80))
 
+	// Check if already zapped
 	isZapped, err := b.db.IsZapped(event.ID)
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Str("event_id", event.ID).
-			Msg("failed to check zap status")
+		logger.Log.Error().Err(err).Str("event_id", event.ID).Msg("failed to check zap status")
 		fmt.Printf("Error checking zap status: %v\n", err)
 		return
 	}
 
 	if isZapped {
-		logger.Log.Info().
-			Str("event_id", event.ID).
-			Msg("event already zapped")
+		logger.Log.Info().Str("event_id", event.ID).Msg("event already zapped")
 		fmt.Println("Already zapped. Skipping.")
 		return
 	}
 
+	// Check daily budget
 	todayTotal, err := b.db.GetTodayTotal()
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Msg("failed to fetch daily total")
+		logger.Log.Error().Err(err).Msg("failed to fetch daily total")
 		fmt.Printf("Error checking budget: %v\n", err)
 		return
 	}
@@ -267,17 +224,14 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 			Int("today_total", todayTotal).
 			Int("limit", b.config.Budget.DailyLimit).
 			Msg("daily budget exceeded")
-		fmt.Printf("⚠️  Daily budget exceeded (%d/%d sats)\n",
-			todayTotal, b.config.Budget.DailyLimit)
+		fmt.Printf("⚠️  Daily budget exceeded (%d/%d sats)\n", todayTotal, b.config.Budget.DailyLimit)
 		return
 	}
 
+	// Check per-author budget
 	authorTotal, err := b.db.GetTodayTotalForAuthor(event.PubKey)
 	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Str("author", event.PubKey).
-			Msg("failed to fetch author budget")
+		logger.Log.Error().Err(err).Str("author", event.PubKey).Msg("failed to fetch author budget")
 		fmt.Printf("Error checking author budget: %v\n", err)
 		return
 	}
@@ -288,60 +242,119 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 			Int("author_total", authorTotal).
 			Msg("per-author budget exceeded")
 		fmt.Printf("⚠️  Per-author budget exceeded for %s (%d/%d sats)\n",
-			event.PubKey[:16]+"...",
-			authorTotal,
-			b.config.Budget.PerNPubLimit,
-		)
+			event.PubKey[:16]+"...", authorTotal, b.config.Budget.PerNPubLimit)
 		return
 	}
 
-	logger.Log.Info().
-		Str("event_id", event.ID).
-		Int("amount", b.config.Zap.Amount).
-		Msg("sending zap")
 
-	fmt.Printf("🌩️  Zapping %d sats...\n", b.config.Zap.Amount)
+	fmt.Printf("🌩️  Zapping %d sats", b.config.Zap.Amount)
+	if b.config.Reaction.Enabled {
+		fmt.Printf(" and reacting with %s", b.config.Reaction.Content)
+	}
+	fmt.Println()
 
-	zapCtx, cancel := context.WithTimeout(b.ctx, 30*time.Second)
-	defer cancel()
+	var wg sync.WaitGroup
+	var zapSuccess, reactSuccess bool
 
-	err = b.zapper.ZapNote(
-		zapCtx,
-		event.ID,
-		event.PubKey,
-		b.config.Zap.Amount,
-		b.config.Zap.Comment,
-		b.bunkerClient,
-	)
-	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Str("event_id", event.ID).
-			Msg("zap failed")
-		fmt.Printf("Zap failed: %v\n", err)
-		return
+	// Launch zap in goroutine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		zapSuccess = b.tryZap(event)
+	}()
+
+	// Launch reaction in goroutine (if enabled)
+	if b.config.Reaction.Enabled {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			reactSuccess = b.tryReact(event)
+		}()
 	}
 
-	err = b.db.MarkZapped(event.ID, event.PubKey, b.config.Zap.Amount, int64(event.CreatedAt))
-	if err != nil {
-		logger.Log.Error().
-			Err(err).
-			Str("event_id", event.ID).
-			Msg("failed to mark zap in database")
-		fmt.Printf("Warning: failed to mark as zapped: %v\n", err)
+	// Wait for both to complete
+	wg.Wait()
+
+	if zapSuccess {
+		fmt.Printf("✅ Zapped successfully!\n")
+
+		// Mark as zapped in database
+		err = b.db.MarkZapped(event.ID, event.PubKey, b.config.Zap.Amount, int64(event.CreatedAt))
+		if err != nil {
+			logger.Log.Error().Err(err).Str("event_id", event.ID).Msg("failed to mark zap in database")
+			fmt.Printf("⚠️  Warning: failed to mark as zapped: %v\n", err)
+		}
+	} else {
+		fmt.Printf("❌ Zap failed after retry. Skipping.\n")
+		// Don't mark as zapped - retry
 	}
-
-	logger.Log.Info().
-		Str("event_id", event.ID).
-		Msg("zap successful")
-
-	fmt.Printf("✅ Zapped successfully!\n")
 
 	if b.config.Reaction.Enabled {
-		reactCtx, reactCancel := context.WithTimeout(b.ctx, 10*time.Second)
-		defer reactCancel()
+		if reactSuccess {
+			fmt.Printf("💬 Reacted successfully!\n")
+		} else {
+			fmt.Printf("⚠️  Reaction failed after retry.\n")
+			// Continue - zap might have succeeded
+		}
+	}
+}
 
-		err = reaction.React(
+// tryZap attempts to zap (with 1 retry)
+func (b *Bot) tryZap(event nostr.RelayEvent) bool {
+	for attempt := 1; attempt <= 2; attempt++ {
+		logger.Log.Info().
+			Str("event_id", event.ID).
+			Int("attempt", attempt).
+			Msg("attempting zap")
+
+		zapCtx, cancel := context.WithTimeout(b.ctx, 30*time.Second)
+		err := b.zapper.ZapNote(
+			zapCtx,
+			event.ID,
+			event.PubKey,
+			b.config.Zap.Amount,
+			b.config.Zap.Comment,
+			b.bunkerClient,
+		)
+		cancel()
+
+		if err == nil {
+			logger.Log.Info().
+				Str("event_id", event.ID).
+				Int("attempt", attempt).
+				Msg("zap successful")
+			return true
+		}
+
+		logger.Log.Error().
+			Err(err).
+			Str("event_id", event.ID).
+			Int("attempt", attempt).
+			Msg("zap failed")
+
+		if attempt == 1 {
+			fmt.Printf("⚠️  Zap failed, retrying...\n")
+			time.Sleep(2 * time.Second) // Brief pause before retry
+		}
+	}
+
+	logger.Log.Error().
+		Str("event_id", event.ID).
+		Msg("zap failed after 2 attempts")
+	return false
+}
+
+// tryReact attempts to react (with 1 retry)
+func (b *Bot) tryReact(event nostr.RelayEvent) bool {
+	for attempt := 1; attempt <= 2; attempt++ {
+		logger.Log.Info().
+			Str("event_id", event.ID).
+			Str("reaction", b.config.Reaction.Content).
+			Int("attempt", attempt).
+			Msg("attempting reaction")
+
+		reactCtx, cancel := context.WithTimeout(b.ctx, 10*time.Second)
+		err := reaction.React(
 			reactCtx,
 			event.ID,
 			event.PubKey,
@@ -349,19 +362,31 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 			b.bunkerClient,
 			b.config.Relays,
 		)
-		if err != nil {
-			logger.Log.Error().
-				Err(err).
-				Str("event_id", event.ID).
-				Msg("reaction failed")
-			fmt.Printf("Reaction failed: %v\n", err)
-		} else {
+		cancel()
+
+		if err == nil {
 			logger.Log.Info().
 				Str("event_id", event.ID).
+				Int("attempt", attempt).
 				Msg("reaction successful")
-			fmt.Printf("💬 Reacted successfully!\n")
+			return true
+		}
+
+		logger.Log.Error().
+			Err(err).
+			Str("event_id", event.ID).
+			Int("attempt", attempt).
+			Msg("reaction failed")
+
+		if attempt == 1 {
+			time.Sleep(1 * time.Second) // Brief pause before retry
 		}
 	}
+
+	logger.Log.Error().
+		Str("event_id", event.ID).
+		Msg("reaction failed after 2 attempts")
+	return false
 }
 
 func (b *Bot) npubsToHex() ([]string, error) {
@@ -370,17 +395,12 @@ func (b *Bot) npubsToHex() ([]string, error) {
 	for _, npub := range b.npubs {
 		hr, data, err := nip19.Decode(npub)
 		if err != nil {
-			logger.Log.Error().
-				Err(err).
-				Str("npub", npub).
-				Msg("failed to decode npub")
+			logger.Log.Error().Err(err).Str("npub", npub).Msg("failed to decode npub")
 			return nil, fmt.Errorf("failed to decode %s: %w", npub, err)
 		}
 
 		if hr != "npub" {
-			logger.Log.Error().
-				Str("hr", hr).
-				Msg("unexpected nip19 prefix")
+			logger.Log.Error().Str("hr", hr).Msg("unexpected nip19 prefix")
 			return nil, fmt.Errorf("expected npub, got %s", hr)
 		}
 
@@ -391,8 +411,7 @@ func (b *Bot) npubsToHex() ([]string, error) {
 		case []byte:
 			hexPubkey = hex.EncodeToString(v)
 		default:
-			logger.Log.Error().
-				Msg("unexpected nip19 decode type")
+			logger.Log.Error().Msg("unexpected nip19 decode type")
 			return nil, fmt.Errorf("unexpected type from decode: %T", data)
 		}
 
