@@ -1,0 +1,12 @@
+services:
+  zapbot:
+    build: .
+    container_name: zapbot
+    network_mode: host
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./config.yml:/app/config.yml
+      - ./zapbot.db:/app/zapbot.db
+    restart: unless-stopped
+    command: tail -f /dev/null

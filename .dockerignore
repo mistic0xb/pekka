@@ -1,0 +1,6 @@
+.git
+*.db
+config.yml
+logs/
+README.md
+*.md

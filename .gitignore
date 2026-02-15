@@ -24,8 +24,8 @@ go.work.sum
 
 # env file
 .env
-*.yaml
-*.yml
+config.yaml
+config.yml
 
 # Editor/IDE
 .idea/
