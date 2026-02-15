@@ -26,7 +26,7 @@ func NewClient(ctx context.Context, bunkerURL string, pool *nostr.SimplePool) (*
 	clientSecretKey := nostr.GeneratePrivateKey()
 
 	// spinner
-	sp := ui.NewSpinner("Authenticating from bunker")
+	sp := ui.NewSpinner("Authenticating from bunker", 11, "blue")
 	// Don't use a timeout context here - let it stay open
 	bunker, err := nip46.ConnectBunker(ctx, clientSecretKey, bunkerURL, pool, func(url string) {
 		fmt.Printf("Auth URL: %s\n", url)

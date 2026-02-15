@@ -12,6 +12,7 @@ import (
 	"github.com/mistic0xb/zapbot/internal/logger"
 	"github.com/mistic0xb/zapbot/internal/nostrlist"
 	reaction "github.com/mistic0xb/zapbot/internal/reactor"
+	"github.com/mistic0xb/zapbot/internal/ui"
 	"github.com/mistic0xb/zapbot/internal/zap"
 
 	"github.com/nbd-wtf/go-nostr"
@@ -79,7 +80,7 @@ func (b *Bot) Start() error {
 		Str("list_id", b.config.SelectedList).
 		Msg("starting bot")
 
-	fmt.Println("Starting Zapbot...")
+	s := ui.NewSpinner("Starting Zapbot", 11, "green")
 	fmt.Printf("Selected list: %s\n", b.config.SelectedList)
 	fmt.Println()
 
@@ -89,6 +90,7 @@ func (b *Bot) Start() error {
 			Msg("failed to load npubs")
 		return fmt.Errorf("failed to load list: %w", err)
 	}
+	s.Stop()
 
 	logger.Log.Info().
 		Int("npub_count", len(b.npubs)).
@@ -97,7 +99,7 @@ func (b *Bot) Start() error {
 	fmt.Printf("Monitoring %d npubs\n", len(b.npubs))
 	fmt.Println()
 
-	fmt.Println("Connecting to wallet...")
+	s = ui.NewSpinner("Connecting to wallet", 11, "yellow")
 	if err := b.zapper.Connect(b.ctx); err != nil {
 		logger.Log.Error().
 			Err(err).
@@ -105,6 +107,7 @@ func (b *Bot) Start() error {
 		return fmt.Errorf("failed to connect to wallet: %w", err)
 	}
 	defer b.zapper.Close()
+	s.Stop()
 
 	balance, err := b.zapper.GetBalance(b.ctx)
 	if err != nil {
@@ -116,6 +119,7 @@ func (b *Bot) Start() error {
 		logger.Log.Info().
 			Int64("balance_msat", balance).
 			Msg("wallet balance fetched")
+		fmt.Println()
 		fmt.Printf("Wallet balance: %d sats\n", balance/1000)
 	}
 	fmt.Println()

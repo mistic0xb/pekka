@@ -11,12 +11,13 @@ type Spinner struct {
 	spinner *spinner.Spinner
 }
 
-func NewSpinner(msg string) *Spinner {
-	s := spinner.New(spinner.CharSets[11], 100*time.Millisecond)
-	s.Start()
-	s.Color("blue", "bold")
-	s.Suffix = fmt.Sprintf(" %s\n", msg)
+// charset == 0 (no value passed) uses default spinner charset
+func NewSpinner(msg string, charset int, color string) *Spinner {
+	s := spinner.New(spinner.CharSets[charset], 100*time.Millisecond)
+	s.Color(color, "bold")
+	s.Suffix = fmt.Sprintf(" %s\n\n", msg)
 
+	s.Start()
 	return &Spinner{spinner: s}
 }
 

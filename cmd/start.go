@@ -109,7 +109,7 @@ func selectList(cfg *config.Config) error {
 	}
 
 	// Spinner
-	s := ui.NewSpinner("Fetching your private lists from relays")
+	s := ui.NewSpinner("Fetching your private lists from relays", 11, "blue")
 	// Fetch lists
 	lists, err := nostrlist.FetchPrivateLists(
 		cfg.Relays,
