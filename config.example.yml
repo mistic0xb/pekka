@@ -1,22 +1,29 @@
 author:
-    bunker_url: bunker://b70562c435de7aa21b376b72b7c60271957af1d170051cdd801ba45841af5e56?relay=ws://127.0.0.1:18081
-    npub: npub1kuzk93p4mea2yxehddet03szwx2h4uw3wqz3ehvqrwj9ssd0tetqs5adr6
+  bunker_url: bunker://<hex>?relay=ws://127.0.0.1:<secret-code>
+  npub: npub1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
 budget:
-    daily_limit: 1000
-    per_npub_limit: 100
+  daily_limit: 1000 # sats per day
+  per_npub_limit: 100 # sats per user per day
+
 database:
-    path: ./zapbot.db
-nwc_url: nostr+walletconnect://de2c20704a399f5409ff1b7db547847338f5876f4ba02b8306d1ce60dc3ab8b8?relay=wss%3A%2F%2Frelay-nwc.rizful.com%2Fv1&secret=6aa8e7cfb17a1ddee047ee1072a49f93bd393b2e9deaaf8a87ad2fa8d479602a&lud16=mist%40rizful.com
+  path: ./zapbot.db
+
+nwc_url: nostr+walletconnect://<wallet_pubkey>?relay=wss%3A%2F%2Frelay.example.com%2Fv1&secret=<secret>&lud16=user%40domain.com
+
 reaction:
-    content: ':catJAM:'
-    emoji_name: catJAM
-    emoji_url: https://cdn.betterttv.net/emote/5f1b0186cf6d2144653d2970/3x.webp
-    enabled: true
+  enabled: true
+  content: ":catJAM:"
+  emoji_name: catJAM
+  emoji_url: https://cdn.betterttv.net/emote/5f1b0186cf6d2144653d2970/3x.webp
+
 relays:
-    - wss://relay.damus.io
-    - wss://nos.lol
-    - wss://relay.nostr.band
+  - wss://relay.damus.io
+  - wss://nos.lol
+  - wss://relay.nostr.band
+
 selected_list: 4f519a14-d650-43a1-9ee3-37d8282d6142
+
 zap:
-    amount: 5
-    comment: keep posting
+  amount: 5 # sats per zap
+  comment: "keep posting"
