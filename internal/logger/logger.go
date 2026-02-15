@@ -19,7 +19,7 @@ func Init() error {
 	}
 
 	writer := &lumberjack.Logger{
-		Filename:   filepath.Join(logDir, "zapbot.json"),
+		Filename:   filepath.Join(logDir, "logs.json"),
 		MaxSize:    20, // MB
 		MaxBackups: 5,
 		MaxAge:     14, // days

@@ -14,7 +14,9 @@ import (
 	"github.com/mistic0xb/zapbot/internal/bot"
 	"github.com/mistic0xb/zapbot/internal/bunker"
 	"github.com/mistic0xb/zapbot/internal/db"
+	"github.com/mistic0xb/zapbot/internal/logger"
 	"github.com/mistic0xb/zapbot/internal/nostrlist"
+	"github.com/mistic0xb/zapbot/internal/ui"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/cobra"
@@ -32,6 +34,10 @@ var startCmd = &cobra.Command{
 		database, err := db.Open(cfg.Database.Path)
 		if err != nil {
 			fmt.Printf("Error opening database: %v\n", err)
+			logger.Log.Error().
+				Err(err).
+				Str("db_path", cfg.Database.Path).
+				Msg("failed to open database")
 			return
 		}
 		defer database.Close()
@@ -91,8 +97,6 @@ var startCmd = &cobra.Command{
 
 // selectList fetches lists and prompts user to select one
 func selectList(cfg *config.Config) error {
-	fmt.Println("Fetching your private lists from relays...")
-	fmt.Println()
 
 	// Create pool for bunker
 	ctx := context.Background()
@@ -105,7 +109,7 @@ func selectList(cfg *config.Config) error {
 	}
 
 	// Spinner
-
+	s := ui.NewSpinner("Fetching your private lists from relays")
 	// Fetch lists
 	lists, err := nostrlist.FetchPrivateLists(
 		cfg.Relays,
@@ -116,6 +120,7 @@ func selectList(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch lists: %w", err)
 	}
+	s.Stop()
 
 	if len(lists) == 0 {
 		return fmt.Errorf("no private lists found. Create one in your Nostr client first")
