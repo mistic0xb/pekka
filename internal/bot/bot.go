@@ -10,6 +10,7 @@ import (
 	"github.com/mistic0xb/zapbot/internal/bunker"
 	"github.com/mistic0xb/zapbot/internal/db"
 	"github.com/mistic0xb/zapbot/internal/nostrlist"
+	reaction "github.com/mistic0xb/zapbot/internal/reactor"
 	"github.com/mistic0xb/zapbot/internal/zap"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
@@ -28,7 +29,7 @@ type Bot struct {
 
 func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	if cfg.SelectedList == "" {
-		return nil, fmt.Errorf("no list selected. Run 'zapbot list' first")
+		return nil, fmt.Errorf("no list selected.")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -221,14 +222,6 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 		return
 	}
 
-	// // Decode nsec to hex
-	// _, privkeyData, err := nip19.Decode(b.config.Author.NSec)
-	// if err != nil {
-	// 	fmt.Printf("Error decoding nsec: %v\n", err)
-	// 	return
-	// }
-	// privkeyHex := privkeyData.(string)
-
 	// Send the zap!
 	fmt.Printf("🌩️  Zapping %d sats...\n", b.config.Zap.Amount)
 
@@ -237,7 +230,7 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 
 	err = b.zapper.ZapNote(zapCtx, event.ID, event.PubKey, b.config.Zap.Amount, b.config.Zap.Comment, b.bunkerClient)
 	if err != nil {
-		fmt.Printf("❌ Zap failed: %v\n", err)
+		fmt.Printf("Zap failed: %v\n", err)
 		return
 	}
 
@@ -248,6 +241,20 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 	}
 
 	fmt.Printf("✅ Zapped successfully!\n")
+
+	// React to the note
+	if b.config.Reaction.Enabled {
+		reactCtx, reactCancel := context.WithTimeout(b.ctx, 10*time.Second)
+		defer reactCancel()
+
+		err = reaction.React(reactCtx, event.ID, event.PubKey, &b.config.Reaction, b.bunkerClient, b.config.Relays)
+		if err != nil {
+			fmt.Printf("Reaction failed: %v\n", err)
+			// Don't return - still mark as zapped
+		} else {
+			fmt.Printf("💬 Reacted successfully!\n")
+		}
+	}
 }
 
 // npubsToHex converts npubs to hex pubkeys

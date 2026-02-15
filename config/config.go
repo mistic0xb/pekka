@@ -11,8 +11,17 @@ type Config struct {
 	SelectedList string         `mapstructure:"selected_list"`
 	NWCUrl       string         `mapstructure:"nwc_url"`
 	Zap          ZapConfig      `mapstructure:"zap"`
+	Reaction     ReactionConfig `mapstructure:"reaction"`
 	Budget       BudgetConfig   `mapstructure:"budget"`
 	Database     DatabaseConfig `mapstructure:"database"`
+}
+
+// Reaction configuration
+type ReactionConfig struct {
+	Enabled   bool   `mapstructure:"enabled"`
+	Content   string `mapstructure:"content"`    // The emoji/reaction text (e.g., ":catJAM:" or "🔥")
+	EmojiName string `mapstructure:"emoji_name"` // Optional custom emoji name
+	EmojiURL  string `mapstructure:"emoji_url"`  // Optional custom emoji URL (gif/image)
 }
 
 type AuthorConfig struct {
@@ -60,6 +69,18 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("zap amount must be positive")
 	}
 
+	if c.Reaction.Enabled {
+		if c.Reaction.Content == "" {
+			return fmt.Errorf("reaction.content is required when reactions are enabled")
+		}
+
+		// If custom emoji is provided, both name and URL are required
+		if (c.Reaction.EmojiName != "" && c.Reaction.EmojiURL == "") ||
+			(c.Reaction.EmojiName == "" && c.Reaction.EmojiURL != "") {
+			return fmt.Errorf("both reaction.emoji_name and reaction.emoji_url must be provided together")
+		}
+	}
+
 	if c.Budget.DailyLimit <= 0 {
 		return fmt.Errorf("daily budget limit must be positive")
 	}
@@ -92,7 +113,6 @@ func (c *Config) Print() {
 	fmt.Println()
 
 	fmt.Printf("Zap Amount: %d sats\n", c.Zap.Amount)
-	fmt.Printf("Zap Comment: %s\n", c.Zap.Comment)
 	fmt.Println()
 
 	fmt.Printf("Daily Budget Limit: %d sats\n", c.Budget.DailyLimit)

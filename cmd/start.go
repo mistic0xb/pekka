@@ -15,6 +15,7 @@ import (
 	"github.com/mistic0xb/zapbot/internal/bunker"
 	"github.com/mistic0xb/zapbot/internal/db"
 	"github.com/mistic0xb/zapbot/internal/nostrlist"
+
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -103,6 +104,8 @@ func selectList(cfg *config.Config) error {
 		return fmt.Errorf("failed to connect to bunker: %w\nPlease check your bunker_url in config", err)
 	}
 
+	// Spinner
+
 	// Fetch lists
 	lists, err := nostrlist.FetchPrivateLists(
 		cfg.Relays,
@@ -151,7 +154,7 @@ func selectList(cfg *config.Config) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("✓ Selected: %s (%d people)\n", selectedList.Title, len(selectedList.NPubs))
+	fmt.Printf("Selected: %s (%d people)\n", selectedList.Title, len(selectedList.NPubs))
 
 	return nil
 }
