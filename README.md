@@ -3,7 +3,7 @@
 ## 1. Setup
 ```bash
 # Clone repo
-git clone https://github.com/yourusername/pekka
+git clone https://github.com/mistic0xb/pekka
 cd pekka 
 
 # Create config
