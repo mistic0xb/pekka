@@ -8,6 +8,6 @@ RUN apk --no-cache add ca-certificates tzdata git
 # Copy and build
 COPY . .
 RUN go mod download
-RUN CGO_ENABLED=0 go build -o zapbot
+RUN CGO_ENABLED=0 go build -o pekka 
 
-CMD ["./zapbot", "start"]
+CMD ["./pekka", "start"]

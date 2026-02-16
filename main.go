@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/mistic0xb/zapbot/cmd"
-	"github.com/mistic0xb/zapbot/internal/logger"
+	"github.com/mistic0xb/pekka/cmd"
+	"github.com/mistic0xb/pekka/internal/logger"
 )
 
 func main() {

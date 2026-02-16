@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mistic0xb/zapbot/internal/bunker"
-	"github.com/mistic0xb/zapbot/internal/logger"
-	"github.com/mistic0xb/zapbot/internal/nwc"
+	"github.com/mistic0xb/pekka/internal/bunker"
+	"github.com/mistic0xb/pekka/internal/logger"
+	"github.com/mistic0xb/pekka/internal/nwc"
 	"github.com/nbd-wtf/go-nostr"
 )
 

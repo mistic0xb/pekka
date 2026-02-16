@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mistic0xb/zapbot/config"
-	"github.com/mistic0xb/zapbot/internal/bunker"
+	"github.com/mistic0xb/pekka/config"
+	"github.com/mistic0xb/pekka/internal/bunker"
 	"github.com/nbd-wtf/go-nostr"
 )
 

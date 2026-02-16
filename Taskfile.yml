@@ -8,11 +8,11 @@ tasks:
     silent: true
 
   run:
-    desc: build and run zapbot
+    desc: build and run pekka 
     cmds:
       - mkdir -p bin
-      - go build -o bin/zapbot .
-      - ./bin/zapbot start
+      - go build -o bin/pekka .
+      - ./bin/pekka start
 
   tidy:
     desc: format all .go files, and tidy and vendor module dependencies

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/mistic0xb/zapbot/internal/db"
+	"github.com/mistic0xb/pekka/internal/db"
 )
 
 var statsCmd = &cobra.Command{

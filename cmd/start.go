@@ -10,13 +10,13 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mistic0xb/zapbot/config"
-	"github.com/mistic0xb/zapbot/internal/bot"
-	"github.com/mistic0xb/zapbot/internal/bunker"
-	"github.com/mistic0xb/zapbot/internal/db"
-	"github.com/mistic0xb/zapbot/internal/logger"
-	"github.com/mistic0xb/zapbot/internal/nostrlist"
-	"github.com/mistic0xb/zapbot/internal/ui"
+	"github.com/mistic0xb/pekka/config"
+	"github.com/mistic0xb/pekka/internal/bot"
+	"github.com/mistic0xb/pekka/internal/bunker"
+	"github.com/mistic0xb/pekka/internal/db"
+	"github.com/mistic0xb/pekka/internal/logger"
+	"github.com/mistic0xb/pekka/internal/nostrlist"
+	"github.com/mistic0xb/pekka/internal/ui"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/spf13/cobra"
@@ -73,7 +73,7 @@ var startCmd = &cobra.Command{
 		fmt.Println()
 
 		// Create bot
-		zapbot, err := bot.New(cfg, database)
+		bot, err := bot.New(cfg, database)
 		if err != nil {
 			fmt.Printf("Error creating bot: %v\n", err)
 			return
@@ -85,11 +85,11 @@ var startCmd = &cobra.Command{
 
 		go func() {
 			<-sigChan
-			zapbot.Stop()
+			bot.Stop()
 		}()
 
 		// Start bot
-		if err := zapbot.Start(); err != nil {
+		if err := bot.Start(); err != nil {
 			fmt.Printf("Bot error: %v\n", err)
 		}
 	},

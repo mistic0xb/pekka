@@ -1,10 +1,10 @@
-# Zapbot - Quick Start
+# Pekka - Quick Start
 
 ## 1. Setup
 ```bash
 # Clone repo
-git clone https://github.com/yourusername/zapbot
-cd zapbot
+git clone https://github.com/yourusername/pekka
+cd pekka 
 
 # Create config
 cp config.example.yml config.yml
@@ -17,10 +17,10 @@ cp config.example.yml config.yml
 docker compose up -d
 
 # Go inside the container 
-docker exec -it zapbot sh
+docker exec -it pekka sh
 
 # Run Command
-./zapbot start
+./pekka start
 
 # Stop bot
 docker compose down
@@ -29,7 +29,7 @@ docker compose down
 ## Config Location
 
 - `./config.yml` - Your credentials (DO NOT COMMIT!)
-- `./zapbot.db` - Bot database (persists across restarts)
+- `./pekka.db` - Bot database (persists across restarts)
 
 ## Updating
 ```bash

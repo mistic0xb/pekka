@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mistic0xb/zapbot/internal/ui"
+	"github.com/mistic0xb/pekka/internal/ui"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip46"

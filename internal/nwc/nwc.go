@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
-	"github.com/mistic0xb/zapbot/internal/logger"
+	"github.com/mistic0xb/pekka/internal/logger"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip04"
 )
@@ -228,7 +229,24 @@ func (c *Client) sendRequest(ctx context.Context, req Request) (*Response, error
 	event.ID = event.GetID()
 	event.Sign(c.secret)
 
-	if err := c.relay.Publish(ctx, event); err != nil {
+	// retry logic
+	for range 3 {
+		err = c.relay.Publish(ctx, event)
+		if err == nil {
+			break
+		}
+
+		if strings.Contains(err.Error(), "connection closed") {
+			// Reconnect and retry
+			time.Sleep(1 * time.Second)
+			c.relay, _ = nostr.RelayConnect(ctx, c.relayURL)
+			continue
+		}
+
+		break
+	}
+
+	if err != nil {
 		logger.Log.Error().
 			Err(err).
 			Msg("failed to publish NWC request")

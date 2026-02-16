@@ -1,4 +1,4 @@
-module github.com/mistic0xb/zapbot
+module github.com/mistic0xb/pekka
 
 go 1.25.5
 

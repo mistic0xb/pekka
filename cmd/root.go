@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/mistic0xb/zapbot/config"
+	"github.com/mistic0xb/pekka/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -17,7 +17,7 @@ var (
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
-	Use:   "zapbot",
+	Use:   "pekka",
 	Short: "Automatically zap events",
 	Long:  "A Nostr bot that automatically zaps kind 1 events (text notes) from npubs in your configured list using Nostr Wallet Connect.",
 }
@@ -51,7 +51,7 @@ func initConfig() {
 	}
 
 	// Read in environment variables that match
-	viper.SetEnvPrefix("ZAPBOT")
+	viper.SetEnvPrefix("PEKKA")
 	viper.AutomaticEnv()
 
 	// Read the config file

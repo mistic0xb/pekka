@@ -1,12 +1,12 @@
 services:
-  zapbot:
+  pekka:
     build: .
-    container_name: zapbot
+    container_name: pekka
     network_mode: host
     stdin_open: true
     tty: true
     volumes:
       - ./config.yml:/app/config.yml
-      - ./zapbot.db:/app/zapbot.db
+      - ./pekka.db:/app/pekka.db
     restart: unless-stopped
     command: tail -f /dev/null

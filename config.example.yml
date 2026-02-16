@@ -7,7 +7,7 @@ budget:
   per_npub_limit: 100 # sats per user per day
 
 database:
-  path: ./zapbot.db
+  path: ./pekka.db
 
 nwc_url: nostr+walletconnect://<wallet_pubkey>?relay=wss%3A%2F%2Frelay.example.com%2Fv1&secret=<secret>&lud16=user%40domain.com
 

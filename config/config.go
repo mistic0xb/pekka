@@ -102,9 +102,7 @@ func (c *Config) Print() {
 
 	if c.SelectedList != "" {
 		fmt.Printf("Selected List: %s\n", c.SelectedList)
-	} else {
-		fmt.Println("Selected List: (none - run 'zapbot list' to select)")
-	}
+	} 
 
 	fmt.Println("Relays:")
 	for i, relay := range c.Relays {

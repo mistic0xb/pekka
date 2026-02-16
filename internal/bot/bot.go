@@ -7,14 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mistic0xb/zapbot/config"
-	"github.com/mistic0xb/zapbot/internal/bunker"
-	"github.com/mistic0xb/zapbot/internal/db"
-	"github.com/mistic0xb/zapbot/internal/logger"
-	"github.com/mistic0xb/zapbot/internal/nostrlist"
-	reaction "github.com/mistic0xb/zapbot/internal/reactor"
-	"github.com/mistic0xb/zapbot/internal/ui"
-	"github.com/mistic0xb/zapbot/internal/zap"
+	"github.com/mistic0xb/pekka/config"
+	"github.com/mistic0xb/pekka/internal/bunker"
+	"github.com/mistic0xb/pekka/internal/db"
+	"github.com/mistic0xb/pekka/internal/logger"
+	"github.com/mistic0xb/pekka/internal/nostrlist"
+	reaction "github.com/mistic0xb/pekka/internal/reactor"
+	"github.com/mistic0xb/pekka/internal/ui"
+	"github.com/mistic0xb/pekka/internal/zap"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
@@ -72,7 +72,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 func (b *Bot) Start() error {
 	logger.Log.Info().Str("list_id", b.config.SelectedList).Msg("starting bot")
 
-	fmt.Println("Starting Zapbot")
+	fmt.Println("Starting Pekka 🟪")
 	fmt.Printf("Selected list: %s\n", b.config.SelectedList)
 	fmt.Println()
 
@@ -82,6 +82,7 @@ func (b *Bot) Start() error {
 	}
 
 	logger.Log.Info().Int("npub_count", len(b.npubs)).Msg("loaded npubs")
+	fmt.Println()
 	fmt.Printf("Monitoring %d npubs\n", len(b.npubs))
 	fmt.Println()
 
@@ -104,13 +105,15 @@ func (b *Bot) Start() error {
 	}
 	fmt.Println()
 
+	s = ui.NewSpinner("Subscribing to events", 11, "blue")
 	if err := b.subscribeToEvents(); err != nil {
 		logger.Log.Error().Err(err).Msg("failed to subscribe to events")
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
+	s.Stop()
 
 	logger.Log.Info().Msg("bot is running")
-	fmt.Println("Bot is running. Press Ctrl+C to stop.")
+	fmt.Println("Pekka 🤖 is running. Press Ctrl+C to stop.")
 	<-b.ctx.Done()
 
 	logger.Log.Info().Msg("bot context cancelled")
@@ -168,9 +171,6 @@ func (b *Bot) subscribeToEvents() error {
 	}}
 
 	logger.Log.Info().Int("author_count", len(pubkeys)).Msg("subscribing to events")
-	fmt.Printf("Subscribing to kind 1 events from %d authors...\n", len(pubkeys))
-	fmt.Println()
-
 	go b.handleEvents(filters)
 	return nil
 }
@@ -245,7 +245,6 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 			event.PubKey[:16]+"...", authorTotal, b.config.Budget.PerNPubLimit)
 		return
 	}
-
 
 	fmt.Printf("🌩️  Zapping %d sats", b.config.Zap.Amount)
 	if b.config.Reaction.Enabled {
