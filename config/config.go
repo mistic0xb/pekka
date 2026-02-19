@@ -6,14 +6,15 @@ import (
 
 // Config holds all bot configuration
 type Config struct {
-	Author       AuthorConfig   `mapstructure:"author"`
-	Relays       []string       `mapstructure:"relays"`
-	SelectedList string         `mapstructure:"selected_list"`
-	NWCUrl       string         `mapstructure:"nwc_url"`
-	Zap          ZapConfig      `mapstructure:"zap"`
-	Reaction     ReactionConfig `mapstructure:"reaction"`
-	Budget       BudgetConfig   `mapstructure:"budget"`
-	Database     DatabaseConfig `mapstructure:"database"`
+	Author        AuthorConfig   `mapstructure:"author"`
+	Relays        []string       `mapstructure:"relays"`
+	SelectedList  string         `mapstructure:"selected_list"`
+	NWCUrl        string         `mapstructure:"nwc_url"`
+	Zap           ZapConfig      `mapstructure:"zap"`
+	Reaction      ReactionConfig `mapstructure:"reaction"`
+	Budget        BudgetConfig   `mapstructure:"budget"`
+	ResponseDelay int            `mapstructure:"response_delay"`
+	Database      DatabaseConfig `mapstructure:"database"`
 }
 
 // Reaction configuration
@@ -85,6 +86,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("daily budget limit must be positive")
 	}
 
+	if c.ResponseDelay < 0 {
+		return fmt.Errorf("response delay must be positive")
+	}
+
 	if c.Database.Path == "" {
 		return fmt.Errorf("database path is required")
 	}
@@ -102,7 +107,7 @@ func (c *Config) Print() {
 
 	if c.SelectedList != "" {
 		fmt.Printf("Selected List: %s\n", c.SelectedList)
-	} 
+	}
 
 	fmt.Println("Relays:")
 	for i, relay := range c.Relays {
@@ -117,15 +122,10 @@ func (c *Config) Print() {
 	fmt.Printf("Per-NPub Limit: %d sats\n", c.Budget.PerNPubLimit)
 	fmt.Println()
 
+	fmt.Printf("Bot Response Delay: %d\n", c.ResponseDelay)
+	fmt.Println()
+
 	fmt.Printf("Database Path: %s\n", c.Database.Path)
 	fmt.Println()
 	fmt.Println("===================================")
-}
-
-// maskNWCUrl masks the NWC URL for security (show only first/last few chars)
-func maskNWCUrl(url string) string {
-	if len(url) <= 30 {
-		return "**1"
-	}
-	return url[:15] + "..." + url[len(url)-32:]
 }

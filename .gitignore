@@ -34,3 +34,5 @@ config.yml
 *.db
 
 logs/
+
+.bunker_client_key

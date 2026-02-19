@@ -14,6 +14,12 @@ tasks:
       - go build -o bin/pekka .
       - ./bin/pekka start
 
+  build:
+    desc: build and run pekka 
+    cmds:
+      - mkdir -p bin
+      - go build -o bin/pekka .
+
   tidy:
     desc: format all .go files, and tidy and vendor module dependencies
     cmds:

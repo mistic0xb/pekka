@@ -72,7 +72,9 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 func (b *Bot) Start() error {
 	logger.Log.Info().Str("list_id", b.config.SelectedList).Msg("starting bot")
 
-	fmt.Println("Starting Pekka 🟪")
+	// Start ascii
+	ui.PrintAscii()
+
 	fmt.Printf("Selected list: %s\n", b.config.SelectedList)
 	fmt.Println()
 
@@ -177,7 +179,7 @@ func (b *Bot) subscribeToEvents() error {
 
 func (b *Bot) handleEvents(filters []nostr.Filter) {
 	for event := range b.pool.SubscribeMany(b.ctx, b.config.Relays, filters[0]) {
-		b.processEvent(event)
+		go b.processEvent(event)
 	}
 }
 
@@ -191,9 +193,16 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 		Str("author", event.PubKey).
 		Msg("new note received")
 
+	select {
+	case <-time.After(time.Duration(b.config.ResponseDelay) * time.Second):
+	case <-b.ctx.Done():
+		return
+	}
+
+	eventAuthorNpub, _ := nip19.EncodePublicKey(event.PubKey)
 	fmt.Printf("\n[%s] New note from %s\n",
 		time.Now().Format("15:04:05"),
-		event.PubKey[:16]+"...",
+		eventAuthorNpub[:16]+"...",
 	)
 	fmt.Printf("Content: %s\n", truncate(event.Content, 80))
 
