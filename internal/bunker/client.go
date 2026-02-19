@@ -18,13 +18,11 @@ type Client struct {
 	bunker *nip46.BunkerClient
 }
 
-const clientKeyFile = ".bunker_client_key"
-
 // loadOrCreateClientKey loads a persisted ephemeral key, or creates and saves a new one.
 // Reusing the same client key across runs means Amber/remote signers remember the
 // granted permissions and don't require re-approval every time.
 func loadOrCreateClientKey() (string, error) {
-	keyPath := clientKeyFile // saved beside config.yml in the root directory
+	keyPath := ".bunker_client_key" // saved beside config.yml in the root directory
 
 	data, err := os.ReadFile(keyPath)
 	if err == nil {
