@@ -151,6 +151,7 @@ func selectList(cfg *config.Config) error {
 	}
 
 	selectedList := lists[choice-1]
+	cfg.SelectedList = selectedList.ID
 
 	// Update config file
 	viper.Set("selected_list", selectedList.ID)
