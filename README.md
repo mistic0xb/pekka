@@ -1,40 +1,34 @@
-# Pekka - Quick Start
+<p align="center">
+  <img src="assets/pekka.png" alt="Pekka" width="100"/>
+</p>
+<h1 align="center">pekka</h1>
+<p align="center">
+  A <i>nostr</i> bot that automatically zaps & reacts to posts from a curated private or public follow list.
+</p>
 
-## 1. Setup
+## Install
+Enter this in your temrinal
 ```bash
-# Clone repo
-git clone https://github.com/mistic0xb/pekka
-cd pekka 
-
-# Create config
-cp config.example.yml config.yml
-# Edit config.yml with your credentials
+curl -fsSL https://pekka.mistic.xyz/install | bash
 ```
 
-## 2. Run Bot
+## Config
+
+Fill the Prompts OR Edit `pekka/config.yml` with your credentials after install.
+
+- `pekka/config.yml` — your credentials (DO NOT COMMIT!)
+- `pekka/pekka.db` — bot database
+
+## Run
 ```bash
-# Start bot (runs in background)
-docker compose up -d
-
-# Go inside the container 
-docker exec -it pekka sh
-
-# Run Command
+cd pekka
 ./pekka start
-
-# Stop bot
-docker compose down
 ```
 
-## Config Location
-
-- `./config.yml` - Your credentials (DO NOT COMMIT!)
-- `./pekka.db` - Bot database (persists across restarts)
-
-## Updating
-```bash
-docker compose down
-git pull
-docker compose build
-docker compose up -d
+## Other Helpful Commands
+```
+pekka start    start the bot
+pekka show     display current configuration
+pekka stats    show zapping statistics
+pekka help     help about any command
 ```
