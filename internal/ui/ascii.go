@@ -5,12 +5,12 @@ import "fmt"
 const (
 	reset      = "\033[0m"
 	darkBlue   = "\033[38;5;24m"   // helmet blue
-	darkPurple = "\033[38;5;55m"   // horn purple
+	purple = "\033[38;5;147m"  // horn purple
 	gray       = "\033[38;5;240m"
 )
 
 func PrintAscii() {
-	fmt.Println(darkPurple + `
+	fmt.Println(purple + `
 -------------------------------------------------
                 PEKKA IS STARTING...
 -------------------------------------------------
