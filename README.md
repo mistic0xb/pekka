@@ -9,7 +9,7 @@
 ## Install
 Enter this in your temrinal
 ```bash
-curl -fsSL https://pekka.mistic.xyz/install | bash
+curl -fsSL https://pekka.mistic.xyz/install -o ./install.sh && bash install.sh
 ```
 
 ## Config
