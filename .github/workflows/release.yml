@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.1
+      - uses: actions/setup-go@v6
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "^1.25.0"
+
+      - name: Build binaries
+        run: |
+          mkdir dist
+          GOOS=linux  GOARCH=amd64 go build -ldflags "-X main.Version=${GITHUB_REF##*/}" -o dist/pekka-linux-amd64
+          GOOS=linux  GOARCH=arm64 go build -ldflags "-X main.Version=${GITHUB_REF##*/}" -o dist/pekka-linux-arm64
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=${GITHUB_REF##*/}" -o dist/pekka-darwin-amd64
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=${GITHUB_REF##*/}" -o dist/pekka-darwin-arm64
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

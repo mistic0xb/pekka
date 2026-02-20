@@ -30,6 +30,10 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := GetConfig()
 
+		// Print the config file
+		fmt.Printf("Using config file: %s\n\n", viper.ConfigFileUsed())
+		cfg.Print()
+
 		// Open database
 		database, err := db.Open(cfg.Database.Path)
 		if err != nil {

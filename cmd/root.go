@@ -32,9 +32,6 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
-	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./config.yaml)")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -71,8 +68,6 @@ func initConfig() {
 		log.Fatalf("Invalid configuration: %v\n", err)
 	}
 
-	fmt.Printf("Using config file: %s\n\n", viper.ConfigFileUsed())
-	cfg.Print()
 }
 
 // GetConfig returns the loaded configuration
