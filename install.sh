@@ -3,7 +3,7 @@ set -e
 
 PEKKA_DIR="./pekka"
 
-PURPLE='\033[0;35m'
+PURPLE='\033[38;5;147m'
 MUTED='\033[0;2m'
 RED='\033[0;31m'
 ORANGE='\033[38;5;214m'
@@ -70,7 +70,7 @@ print_progress() {
     local empty=$(printf "%*s" "$off" "")
     empty=${empty// /･}
 
-    printf "\r${ORANGE}%s%s %3d%%${NC}" "$filled" "$empty" "$percent" >&4
+    printf "\r${PURPLE}%s${MUTED}%s %3d%%${NC}" "$filled" "$empty" "$percent" >&4
 }
 
 download_with_progress() {
