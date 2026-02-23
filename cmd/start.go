@@ -107,7 +107,7 @@ func selectList(cfg *config.Config) error {
 	pool := nostr.NewSimplePool(ctx)
 
 	// Create bunker client
-	bunkerClient, err := bunker.NewClient(ctx, cfg.Author.BunkerURL, pool)
+	bunkerClient, err := bunker.NewReconnectingClient(ctx, cfg.Author.BunkerURL, pool)
 	if err != nil {
 		return fmt.Errorf("failed to connect to bunker: %w\nPlease check your bunker_url in config", err)
 	}

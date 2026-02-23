@@ -36,3 +36,4 @@ config.yml
 logs/
 
 .bunker_client_key
+*.excalidraw

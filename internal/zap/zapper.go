@@ -71,7 +71,7 @@ func (z *Zapper) ZapNote(
 	authorPubkey string,
 	amountSats int,
 	comment string,
-	bunkerClient *bunker.Client,
+	bunkerClient *bunker.ReconnectingClient,
 ) error {
 
 	logger.Log.Info().
@@ -128,7 +128,7 @@ func (z *Zapper) createZapRequest(
 	recipientPubkey string,
 	amountSats int,
 	comment string,
-	bunkerClient *bunker.Client,
+	bunkerClient *bunker.ReconnectingClient,
 ) (string, error) {
 
 	zapperPubkey, err := bunkerClient.GetPublicKey(ctx)

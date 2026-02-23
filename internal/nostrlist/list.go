@@ -27,7 +27,7 @@ type PrivateList struct {
 func FetchPrivateLists(
 	relayURLs []string,
 	authorNPub string,
-	bunkerClient *bunker.Client,
+	bunkerClient *bunker.ReconnectingClient,
 	pool *nostr.SimplePool,
 ) ([]*PrivateList, error) {
 
@@ -140,7 +140,7 @@ func FetchPrivateLists(
 // processEvents converts raw events into PrivateList structs
 func processEvents(
 	events []nostr.RelayEvent,
-	bunkerClient *bunker.Client,
+	bunkerClient *bunker.ReconnectingClient,
 	pubkeyHex string,
 ) ([]*PrivateList, error) {
 
@@ -263,7 +263,7 @@ func processEvents(
 // extractAllNPubs extracts npubs from public tags and encrypted content
 func extractAllNPubs(
 	event nostr.RelayEvent,
-	bunkerClient *bunker.Client,
+	bunkerClient *bunker.ReconnectingClient,
 	pubkeyHex string,
 ) ([]string, bool) {
 
@@ -370,7 +370,7 @@ func extractAllNPubs(
 // decryptContent tries NIP-44 first, then NIP-04
 func decryptContent(
 	content string,
-	bunkerClient *bunker.Client,
+	bunkerClient *bunker.ReconnectingClient,
 	pubkeyHex string,
 ) (string, error) {
 
@@ -449,7 +449,7 @@ func npubsFromSet(npubSet map[string]bool) []string {
 func GetNPubsFromList(
 	relays []string,
 	authorNPub string,
-	bunkerClient *bunker.Client,
+	bunkerClient *bunker.ReconnectingClient,
 	pool *nostr.SimplePool,
 	listID string,
 ) ([]string, error) {

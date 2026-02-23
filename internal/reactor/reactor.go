@@ -10,7 +10,7 @@ import (
 )
 
 // React creates and publishes a reaction (kind 7) to an event
-func React(ctx context.Context, eventID, authorPubkey string, cfg *config.ReactionConfig, bunkerClient *bunker.Client, relays []string) error {
+func React(ctx context.Context, eventID, authorPubkey string, cfg *config.ReactionConfig, bunkerClient *bunker.ReconnectingClient, relays []string) error {
 	if !cfg.Enabled {
 		return nil // Reactions disabled
 	}

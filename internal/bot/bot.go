@@ -25,7 +25,7 @@ type Bot struct {
 	db           *db.DB
 	pool         *nostr.SimplePool
 	zapper       *zap.Zapper
-	bunkerClient *bunker.Client
+	bunkerClient *bunker.ReconnectingClient
 	npubs        []string
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -42,7 +42,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := nostr.NewSimplePool(ctx)
 
-	bunkerClient, err := bunker.NewClient(ctx, cfg.Author.BunkerURL, pool)
+	bunkerClient, err := bunker.NewReconnectingClient(ctx, cfg.Author.BunkerURL, pool)
 	if err != nil {
 		logger.Log.Error().Err(err).Msg("failed to create bunker client")
 		cancel()
