@@ -315,7 +315,7 @@ func (b *Bot) tryZap(event nostr.RelayEvent) bool {
 			Int("attempt", attempt).
 			Msg("attempting zap")
 
-		zapCtx, cancel := context.WithTimeout(b.ctx, 30*time.Second)
+		zapCtx, cancel := context.WithTimeout(b.ctx, 120*time.Second)
 		err := b.zapper.ZapNote(
 			zapCtx,
 			event.ID,
@@ -361,7 +361,7 @@ func (b *Bot) tryReact(event nostr.RelayEvent) bool {
 			Int("attempt", attempt).
 			Msg("attempting reaction")
 
-		reactCtx, cancel := context.WithTimeout(b.ctx, 10*time.Second)
+		reactCtx, cancel := context.WithTimeout(b.ctx, 60*time.Second)
 		err := reaction.React(
 			reactCtx,
 			event.ID,

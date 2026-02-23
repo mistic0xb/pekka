@@ -155,7 +155,7 @@ func (c *Client) SignEvent(ctx context.Context, event *nostr.Event) error {
 		Int("kind", event.Kind).
 		Msg("sending sign request to bunker")
 
-	signCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	signCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	if err := c.bunker.SignEvent(signCtx, event); err != nil {
 		logger.Log.Error().
