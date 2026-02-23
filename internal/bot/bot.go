@@ -202,7 +202,7 @@ func (b *Bot) processEvent(event nostr.RelayEvent) {
 	eventAuthorNpub, _ := nip19.EncodePublicKey(event.PubKey)
 	fmt.Printf("\n[%s] New note from %s\n",
 		time.Now().Format("15:04:05"),
-		eventAuthorNpub[:16]+"...",
+		eventAuthorNpub,
 	)
 	fmt.Printf("Content: %s\n", truncate(event.Content, 80))
 
