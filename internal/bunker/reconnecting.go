@@ -3,6 +3,7 @@ package bunker
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,11 +12,12 @@ import (
 )
 
 type ReconnectingClient struct {
-	mu        sync.RWMutex
-	client    *Client
-	bunkerURL string
-	pool      *nostr.SimplePool
-	botCtx    context.Context
+	mu          sync.RWMutex
+	reconnectMu sync.Mutex
+	client      *Client
+	bunkerURL   string
+	pool        *nostr.SimplePool
+	botCtx      context.Context
 }
 
 func NewReconnectingClient(botCtx context.Context, bunkerURL string, pool *nostr.SimplePool) (*ReconnectingClient, error) {
@@ -36,6 +38,9 @@ func NewReconnectingClient(botCtx context.Context, bunkerURL string, pool *nostr
 }
 
 func (rc *ReconnectingClient) reconnect() error {
+	rc.reconnectMu.Lock()
+	defer rc.reconnectMu.Unlock()
+
 	logger.Log.Info().Msg("reconnecting bunker client")
 	client, err := NewClient(rc.botCtx, rc.bunkerURL, rc.pool)
 	if err != nil {
@@ -72,7 +77,18 @@ func (rc *ReconnectingClient) getClient() *Client {
 }
 
 func isSessionError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+
+	// relay connection dropped
+	errStr := err.Error()
+	return strings.Contains(errStr, "couldn't connect to any relay") ||
+		strings.Contains(errStr, "closed channel") ||
+		strings.Contains(errStr, "connection refused")
 }
 
 // SignEvent - reconnects once on session error
@@ -80,7 +96,7 @@ func (rc *ReconnectingClient) SignEvent(ctx context.Context, event *nostr.Event)
 	err := rc.getClient().SignEvent(ctx, event)
 	if err != nil && isSessionError(err) {
 		if reconnErr := rc.reconnect(); reconnErr != nil {
-			return err 
+			return err
 		}
 		return rc.getClient().SignEvent(ctx, event)
 	}
